@@ -220,3 +220,19 @@ def test_api_monitor_trim_guards_tiny_limit():
     assert _trim("abcdefgh", 3) == "..."
     assert _trim("abcdefgh", 4) == "a..."
     assert _trim("abcdefgh", 100) == "abcdefgh"
+
+
+def test_api_monitor_append_reply_caps_without_regrowing():
+    import core.inference.api_monitor as m
+
+    monitor = ApiMonitor(max_entries = 1)
+    entry_id = monitor.start(
+        endpoint = "/v1/chat/completions", method = "POST", model = "m", prompt = "go",
+    )
+    monitor.append_reply(entry_id, "x" * (m._MAX_REPLY_CHARS + 500))
+    capped = monitor.snapshot()[0]["reply"]
+    assert len(capped) == m._MAX_REPLY_CHARS and capped.endswith("...")
+
+    # Chunks past the cap must not change or grow the stored preview.
+    monitor.append_reply(entry_id, "y" * 1000)
+    assert monitor.snapshot()[0]["reply"] == capped

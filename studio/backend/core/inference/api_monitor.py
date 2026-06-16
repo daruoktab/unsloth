@@ -134,6 +134,11 @@ class ApiMonitor:
             entry = self._find_locked(entry_id)
             if entry is None:
                 return
+            # Preview is capped: once full, the head is frozen, so skip the
+            # per-chunk re-concat/copy (avoids O(n^2) on long generations).
+            if len(entry.reply) >= _MAX_REPLY_CHARS:
+                entry.updated_at = time.time()
+                return
             entry.reply = _trim(entry.reply + text, _MAX_REPLY_CHARS)
             entry.updated_at = time.time()
 
