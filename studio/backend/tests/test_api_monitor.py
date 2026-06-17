@@ -227,7 +227,10 @@ def test_api_monitor_append_reply_caps_without_regrowing():
 
     monitor = ApiMonitor(max_entries = 1)
     entry_id = monitor.start(
-        endpoint = "/v1/chat/completions", method = "POST", model = "m", prompt = "go",
+        endpoint = "/v1/chat/completions",
+        method = "POST",
+        model = "m",
+        prompt = "go",
     )
     monitor.append_reply(entry_id, "x" * (m._MAX_REPLY_CHARS + 500))
     capped = monitor.snapshot()[0]["reply"]
