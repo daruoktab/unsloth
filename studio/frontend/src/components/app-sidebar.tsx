@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useAnimatedThemeToggle } from "@/components/ui/animated-theme-toggler";
 import { cn } from "@/lib/utils";
@@ -84,7 +85,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ChevronDown, MoreHorizontalIcon, Moon } from "lucide-react";
+import { ChevronDown, Moon } from "lucide-react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   archiveChatItem,
@@ -116,10 +117,12 @@ import {
   emitTrainingRunUpdated,
   removeTrainingUnloadGuard,
   renameTrainingRun,
+  useTrainingCompletionWatch,
   useTrainingHistorySidebarItems,
   useTrainingRuntimeStore,
 } from "@/features/training";
 import type { TrainingRunSummary } from "@/features/training";
+import { useExportRuntimeStore } from "@/features/export";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "@/lib/toast";
 import { ShutdownDialog } from "@/components/shutdown-dialog";
@@ -207,6 +210,7 @@ function NavItem({
   children,
   dataTour,
   className,
+  spinner,
 }: {
   icon: typeof ZapIcon;
   label: string;
@@ -216,6 +220,7 @@ function NavItem({
   children?: ReactNode;
   dataTour?: string;
   className?: string;
+  spinner?: boolean;
 }) {
   return (
     <SidebarMenuItem className={className}>
@@ -226,11 +231,18 @@ function NavItem({
           onClick={onClick}
           isActive={active}
           data-tour={dataTour}
-          className="sidebar-nav-btn h-[33px] rounded-full gap-[8.5px] pl-3 pr-2.5 font-medium group-data-[collapsible=icon]:px-2.5 group-data-[collapsible=icon]:!w-[32px] group-data-[collapsible=icon]:!rounded-full group-data-[collapsible=icon]:mx-auto"
+          className="sidebar-nav-btn h-[33px] rounded-full gap-[8.5px] pl-3 pr-2.5 font-medium group-data-[collapsible=icon]:px-2.5 group-data-[collapsible=icon]:!w-[32px] group-data-[collapsible=icon]:mx-auto"
         >
           <HugeiconsIcon icon={icon} strokeWidth={1.75} className="size-icon! shrink-0 group-hover/menu-button:animate-icon-pop" />
           <span className="text-[14.5px] leading-[19px] tracking-nav">{label}</span>
+          {spinner && (
+            <Spinner className="ml-auto size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+          )}
         </SidebarMenuButton>
+        {spinner && (
+          // Collapsed (icon-only) rail: small spinner badge over the icon corner.
+          <Spinner className="pointer-events-none absolute right-1 top-1 hidden size-2.5 text-muted-foreground group-data-[collapsible=icon]:block" />
+        )}
       </div>
       {children}
     </SidebarMenuItem>
@@ -254,7 +266,6 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
-  const isTrainingRunning = useTrainingRuntimeStore((s) => s.isTrainingRunning);
   const chatOnly = usePlatformStore((s) => s.isChatOnly());
   const [shutdownOpen, setShutdownOpen] = useState(false);
 
@@ -293,6 +304,7 @@ export function AppSidebar() {
   };
 
   const isRecipesRoute = pathname.startsWith("/data-recipes");
+  const isExportRoute = pathname === "/export" || pathname.startsWith("/export/");
   const { displayTitle, avatarDataUrl } = useEffectiveProfile();
 
   const { projects } = useChatProjects();
@@ -327,6 +339,15 @@ export function AppSidebar() {
   const [pinnedOpen, setPinnedOpen] = useState(true);
   const storeThreadId = useChatRuntimeStore((s) => s.activeThreadId);
   const setActiveThreadId = useChatRuntimeStore((s) => s.setActiveThreadId);
+  const anyChatRunning = useChatRuntimeStore((s) =>
+    Object.values(s.runningByThreadId).some(Boolean),
+  );
+  // The thread currently generating (if any), so "Return to Chat" lands on the
+  // live chat rather than an empty new-chat draft left active after New Chat.
+  const runningThreadId = useChatRuntimeStore((s) => {
+    const entry = Object.entries(s.runningByThreadId).find(([, on]) => on);
+    return entry ? entry[0] : null;
+  });
   const activeThreadId = isChatRoute
     ? (search.thread as string | undefined) ??
       (search.compare as string | undefined) ??
@@ -334,14 +355,32 @@ export function AppSidebar() {
       undefined
     : undefined;
 
-  // Training runs
+  // Training runs: surfaced as sidebar "Recents" on Train, Recipes, and Export,
+  // falling back to chat recents when there are no runs yet.
+  const trainingRecentsRoute = isStudioRoute || isRecipesRoute || isExportRoute;
   const { items: runItems } = useTrainingHistorySidebarItems(
-    !chatOnly && isStudioRoute,
+    !chatOnly && trainingRecentsRoute,
   );
+  const showTrainingRecents =
+    !chatOnly && trainingRecentsRoute && runItems.length > 0;
   const activeJobId = useTrainingRuntimeStore((s) => s.jobId);
   const currentRunViewActive = useTrainingRuntimeStore((s) => s.currentRunViewActive);
   const selectedHistoryRunId = useTrainingRuntimeStore((s) => s.selectedHistoryRunId);
   const setSelectedHistoryRunId = useTrainingRuntimeStore((s) => s.setSelectedHistoryRunId);
+  // Running or starting up. Drives the Train spinner + New Chat / Return to Chat swap.
+  const trainingInProgress = useTrainingRuntimeStore((s) => s.isTrainingRunning || s.isStarting);
+  // Export runs in the background (parallel with training/inference); reflect it
+  // on the Export nav item so it is visible from any tab.
+  const exportInProgress = useExportRuntimeStore((s) => s.isExporting);
+  // On any non-chat tab (Train, Export, Recipes, Projects, Hub, ...) offer a way
+  // back to the live chat instead of starting a new one, whenever a chat is
+  // running or its thread is still active, or a training / export is in progress.
+  const showReturnToChat =
+    !isChatRoute &&
+    (trainingInProgress || exportInProgress || anyChatRunning || storeThreadId != null);
+  // The Train-page status poll doesn't run off-route; keep state fresh so the spinner
+  // clears even if a run finishes while the user is on another tab.
+  useTrainingCompletionWatch();
 
   // Recompute bottom-fade on mount and whenever list height can change
   // (items load, sections toggle, route switch) - onScroll never fires for
@@ -361,8 +400,6 @@ export function AppSidebar() {
     isStudioRoute,
   ]);
 
-  const chatDisabled = isTrainingRunning;
-
   function chatSearchForProject(projectId: string | null) {
     if (projectId) {
       return { project: projectId };
@@ -373,7 +410,6 @@ export function AppSidebar() {
   }
 
   function openNewChat(projectId = activeProjectId) {
-    if (chatDisabled) return;
     clearNewChatDraft();
     setActiveThreadId(null);
     useChatRuntimeStore.getState().setActiveProjectId(projectId);
@@ -385,7 +421,6 @@ export function AppSidebar() {
   }
 
   function openProject(projectId: string) {
-    if (chatDisabled) return;
     setActiveThreadId(null);
     useChatRuntimeStore.getState().setActiveProjectId(projectId);
     navigate({ to: "/chat", search: { project: projectId } });
@@ -897,7 +932,6 @@ export function AppSidebar() {
             to="/chat"
             onClick={(event) => {
               event.preventDefault();
-              if (chatDisabled) return;
               openNewChat(null);
             }}
             className="flex items-center gap-[6px] select-none"
@@ -921,7 +955,7 @@ export function AppSidebar() {
                 <button
                   type="button"
                   onClick={togglePinned}
-                  className="inline-flex h-[33px] w-[32px] cursor-pointer items-center justify-center rounded-[10px] text-nav-icon-idle dark:text-nav-fg-muted transition-colors hover:bg-nav-surface-hover hover:text-black dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex h-[33px] w-[33px] cursor-pointer items-center justify-center rounded-[10px] text-nav-icon-idle dark:text-nav-fg-muted transition-colors hover:bg-nav-surface-hover hover:text-black dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={t("shell.aria.closeSidebar")}
                 >
                   <HugeiconsIcon icon={LayoutAlignLeftIcon} strokeWidth={1.75} className="size-icon" />
@@ -946,7 +980,7 @@ export function AppSidebar() {
                 <button
                   type="button"
                   onClick={togglePinned}
-                  className="inline-flex h-[33px] w-[32px] cursor-pointer items-center justify-center rounded-[10px] text-nav-fg transition-colors hover:bg-nav-surface-hover hover:text-black dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex h-[33px] w-[33px] cursor-pointer items-center justify-center rounded-[10px] text-nav-fg transition-colors hover:bg-nav-surface-hover hover:text-black dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={t("shell.aria.openSidebar")}
                 >
                   <HugeiconsIcon icon={LayoutAlignLeftIcon} strokeWidth={1.75} className="size-icon" />
@@ -970,23 +1004,37 @@ export function AppSidebar() {
           <SidebarMenu>
             <NavItem
               icon={PencilEdit02Icon}
-              label={t("shell.navigation.newChat")}
+              label={
+                showReturnToChat
+                  ? t("shell.navigation.returnToChat")
+                  : t("shell.navigation.newChat")
+              }
               active={
                 isChatRoute &&
                 !search.thread &&
                 !search.compare &&
                 !search.project
               }
-              disabled={chatDisabled}
-              onClick={() => openNewChat(null)}
+              onClick={() => {
+                if (showReturnToChat) {
+                  // Prefer the running thread so we return to the live generation,
+                  // not the empty new chat that became active after New Chat.
+                  if (runningThreadId && runningThreadId !== storeThreadId) {
+                    navigate({ to: "/chat", search: { thread: runningThreadId } });
+                  } else {
+                    navigate({ to: "/chat" });
+                  }
+                  closeMobileIfOpen();
+                  return;
+                }
+                openNewChat(null);
+              }}
             />
             <NavItem
               icon={Search01Icon}
               label={t("shell.navigation.search")}
               active={false}
               onClick={() => {
-                // Search is read-only and never runs inference, so it stays
-                // available while training (unlike New chat, gated on chatDisabled).
                 useChatSearchStore.getState().open();
                 closeMobileIfOpen();
               }}
@@ -1057,6 +1105,7 @@ export function AppSidebar() {
                   pathname === "/studio" || pathname.startsWith("/studio/")
                 }
                 disabled={chatOnly}
+                spinner={trainingInProgress}
                 onClick={() => {
                   if (chatOnly) return;
                   navigate({ to: "/studio" });
@@ -1084,6 +1133,7 @@ export function AppSidebar() {
                     label={t("shell.navigation.train")}
                     active={pathname === "/studio" || pathname.startsWith("/studio/")}
                     disabled={chatOnly}
+                    spinner={trainingInProgress}
                     onClick={() => {
                       if (chatOnly) return;
                       navigate({ to: "/studio" });
@@ -1104,6 +1154,7 @@ export function AppSidebar() {
                     label={t("shell.navigation.export")}
                     active={pathname === "/export" || pathname.startsWith("/export/")}
                     disabled={chatOnly}
+                    spinner={exportInProgress}
                     onClick={() => {
                       if (chatOnly) return;
                       navigate({ to: "/export" });
@@ -1117,7 +1168,7 @@ export function AppSidebar() {
         </Collapsible>
 
         {/* Pinned chats: own section above Recents */}
-        {!isStudioRoute && pinnedChatItems.length > 0 && (
+        {!isStudioRoute && !showTrainingRecents && pinnedChatItems.length > 0 && (
           <Collapsible open={pinnedOpen} onOpenChange={setPinnedOpen} asChild>
             <SidebarGroup className="group-data-[collapsible=icon]:hidden px-0 py-0">
               <SidebarGroupLabel className={cn("sidebar-sticky-label sidebar-sticky-label-following", scrolled && "is-scrolled")} asChild>
@@ -1139,7 +1190,7 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {!isStudioRoute && (
+        {!isStudioRoute && !showTrainingRecents && (
           <Collapsible open={chatOpen} onOpenChange={setChatOpen} asChild>
             <SidebarGroup className="group-data-[collapsible=icon]:hidden px-0 py-0">
               <SidebarGroupLabel className={cn("sidebar-sticky-label sidebar-sticky-label-following", scrolled && "is-scrolled")} asChild>
@@ -1161,7 +1212,7 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {isStudioRoute && runItems.length > 0 && !chatOnly && (
+        {showTrainingRecents && (
           <Collapsible open={runsOpen} onOpenChange={setRunsOpen} asChild>
           <SidebarGroup className="group-data-[collapsible=icon]:hidden px-0 py-0">
             <SidebarGroupLabel className={cn("sidebar-sticky-label sidebar-sticky-label-following", scrolled && "is-scrolled")} asChild>
@@ -1189,9 +1240,12 @@ export function AppSidebar() {
                       >
                         <SidebarMenuButton
                           isActive={isActiveRun}
-                          className="sidebar-nav-btn h-auto flex-col items-start gap-0.5 py-[5px] rounded-full pl-3 pr-7 text-[14.5px] tracking-nav font-medium"
+                          className="sidebar-nav-btn h-auto flex-col items-start gap-0.5 py-[5px] rounded-[14px] pl-3 pr-7 text-[14.5px] tracking-nav font-medium"
                           onClick={() => {
                             setSelectedHistoryRunId(run.id);
+                            // From Recipes/Export, jump to Train so the run's
+                            // history opens (studio reacts to selectedHistoryRunId).
+                            if (!isStudioRoute) navigate({ to: "/studio" });
                             closeMobileIfOpen();
                           }}
                         >
@@ -1206,7 +1260,7 @@ export function AppSidebar() {
                             <span className="truncate">
                               {run.display_name ?? run.model_name}
                             </span>
-                            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            <span className="ml-auto mr-0.5 shrink-0 text-[10px] text-muted-foreground">
                               {formatRelativeShort(run.started_at)}
                             </span>
                           </div>
@@ -1223,7 +1277,7 @@ export function AppSidebar() {
                               className="sidebar-row-action group-hover/run-item:opacity-100 group-hover/run-item:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto"
                             >
                               <span className="sidebar-row-action-glyph">
-                                <MoreHorizontalIcon strokeWidth={1.75} className="size-icon" />
+                                <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={1.75} className="size-icon" />
                               </span>
                             </button>
                           </DropdownMenuTrigger>
@@ -1278,14 +1332,14 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   size="lg"
                   aria-label={t("shell.accountMenu", { name: displayTitle })}
-                  className="sidebar-nav-btn !h-[44px] -my-[3px] gap-[9px] px-2 py-[3px] rounded-[14px]"
+                  className="sidebar-nav-btn !h-[44px] -my-[3px] gap-[9px] px-2 py-[3px] rounded-[14px] group-data-[collapsible=icon]:!size-[34px] group-data-[collapsible=icon]:!rounded-full group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center"
                 >
                   <div className="flex shrink-0 items-center">
                     <UserAvatar
                       name={displayTitle}
                       imageUrl={avatarDataUrl}
                       size="sm"
-                      className="!size-[32px]"
+                      className="!size-[32px] group-data-[collapsible=icon]:!rounded-full"
                     />
                   </div>
                   <div className="flex flex-col gap-px leading-tight group-data-[collapsible=icon]:hidden">

@@ -125,6 +125,7 @@ import {
   Image03Icon,
   McpServerIcon,
   PencilRulerIcon,
+  ShieldBanIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -162,6 +163,7 @@ import {
   useState,
 } from "react";
 import { create } from "zustand";
+import { extractTaggedText, updateThreadMessage } from "@/features/chat/utils/update-thread-message";
 
 // True while a file is dragged anywhere over the chat page, so the composer
 // can show its "Drop files here" affordance.
@@ -1246,6 +1248,7 @@ const Composer: FC<{
   const artifactsEnabled = useChatRuntimeStore((s) => s.artifactsEnabled);
   const mcpEnabledForChat = useChatRuntimeStore((s) => s.mcpEnabledForChat);
   const ragEnabled = useChatRuntimeStore((s) => s.ragEnabled);
+  const bypassPermissions = useChatRuntimeStore((s) => s.bypassPermissions);
   // More than 4 pills: collapse to icons only. Search and Code always show;
   // Images, RAG, Canvas and MCP are conditional.
   const pillsCompact =
@@ -1367,6 +1370,8 @@ const Composer: FC<{
   }, [composerText, draftKey]);
   // Two-row layout shows once the input wraps or a tool is on. Tools can
   // pre-select before a model loads, so an active toggle expands it either way.
+  // Bypass permissions counts too: turning it on should drop the composer into
+  // the two-row layout immediately, same as Search/Code.
   const composerExpanded =
     isMultiline ||
     hasAttachments ||
@@ -1376,7 +1381,8 @@ const Composer: FC<{
     imageToolsEnabled ||
     ragEnabled ||
     artifactsEnabled ||
-    mcpEnabledForChat;
+    mcpEnabledForChat ||
+    bypassPermissions;
   // react-textarea-autosize re-measures only on value change or window resize,
   // not on the width swap from expanding, so it keeps the taller height and
   // leaves a stray blank row. Nudge a resize whenever input width changes.
@@ -2072,7 +2078,11 @@ const ReasoningToggle: FC<{ side?: "top" | "bottom" }> = ({
     return null;
   }
 
-  const isEffort = effectiveReasoningStyle === "reasoning_effort";
+  // enable_thinking_effort (GLM-5.2: high|max + disable) reuses the effort
+  // dropdown; it just also carries an Off row via supportsReasoningOff.
+  const isEffort =
+    effectiveReasoningStyle === "reasoning_effort" ||
+    effectiveReasoningStyle === "enable_thinking_effort";
   // Dropdown when there are effort levels or preserve-thinking; else a toggle.
   const useDropdown = isEffort || supportsPreserveThinking;
   const activeLook = isEffort
@@ -2429,7 +2439,7 @@ const ArtifactsToggle: FC = () => {
   );
 };
 
-// Red pill shown while Bypass Permissions is on; click to turn it off.
+// Claude gold pill shown while Bypass permissions is on; click to turn it off.
 // Mirror of shared-composer's badge so both composers surface the state.
 const BypassPermissionsToggle: FC = () => {
   const bypassPermissions = useChatRuntimeStore((s) => s.bypassPermissions);
@@ -2444,11 +2454,17 @@ const BypassPermissionsToggle: FC = () => {
       className="composer-pill-btn"
       data-active="true"
       data-variant="danger"
-      aria-label="Disable Bypass Permissions"
-      title="Bypass Permissions is on (no confirmation, no sandbox). Click to turn off."
+      aria-label="Disable Bypass permissions"
+      title="Bypass permissions is on (no confirmation, no sandbox). Click to turn off."
     >
-      <XIcon className="size-3" />
-      <span>Bypass Permissions</span>
+      <PillGlyph>
+        <HugeiconsIcon
+          icon={ShieldBanIcon}
+          strokeWidth={2}
+          className="size-[15px]"
+        />
+      </PillGlyph>
+      <span>Bypass permissions</span>
     </button>
   );
 };
@@ -2958,7 +2974,7 @@ const ComposerToolsMenu: FC<{ side?: "top" | "bottom" }> = ({
               <MoreHorizontalIcon className="size-4" />
               More
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="unsloth-plus-menu w-[232px]">
+            <DropdownMenuSubContent className="unsloth-plus-menu w-[248px]">
               {overflowPlusItems.map((id) => (
                 <Fragment key={id}>{plusMenuNodes[id]}</Fragment>
               ))}
@@ -3195,41 +3211,138 @@ const DiffusionCanvas: FC = () => {
   );
 };
 
+/**
+ * AssistantMessage handles the display and inline-editing of AI responses.
+ * 
+ * It utilizes a "Tagged Text" system (<THINK> and <TOOL> tags) to allow users 
+ * to edit structured reasoning and tool outputs within a plain-text textarea 
+ * while preserving the underlying data schema and tool-call metadata.
+ */
 const AssistantMessage: FC = () => {
+  const aui = useAui();
+  const messageId = useAuiState(({ message }) => message.id);
+  const messageContent = useAuiState(({ message }) => message.content);
+  const incognito = useChatRuntimeStore((s) => s.incognito);
+  
+  // Use global store for editing state to ensure a single source of truth
+  const editingId = useChatRuntimeStore((s) => s.editingMessageId);
+  const setEditingId = useChatRuntimeStore((s) => s.setEditingMessageId);
+  const isEditing = editingId === messageId;
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea height based on content
+  const adjustHeight = () => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    if (isEditing) setTimeout(adjustHeight, 0);
+  }, [isEditing]);
+
+  const handleSave = async () => {
+    const finalText = textareaRef.current?.value || "";
+    
+    // Prioritize the specific thread item ID, then fallback to the global active thread ID
+    const remoteId = aui.threadListItem().getState().remoteId 
+                  || useChatRuntimeStore.getState().activeThreadId;
+
+    if (!remoteId || remoteId === "" || remoteId === "/") {
+      toast.error("Save failed: No thread ID found.");
+      setEditingId(null);
+      return;
+    }
+
+    try {
+      await updateThreadMessage({
+        thread: { 
+          export: () => aui.thread().export(), 
+          import: (data) => aui.thread().import(data) 
+        },
+        messageId,
+        remoteId,
+        newText: finalText,
+        isIncognito: incognito,
+      });
+    } catch (error) {
+      console.error("UI: Error during save:", error);
+      toast.error("Failed to save message edits.");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
   return (
     <MessagePrimitive.Root
       className="aui-assistant-message-root relative mx-auto min-w-0 w-full max-w-(--thread-content-max-width) pt-0.5 pb-4 text-[15.5px] [font-weight:410] tracking-[0.01em] dark:tracking-[0.02em]"
       data-role="assistant"
     >
       <div className="aui-assistant-message-content wrap-break-word min-w-0 text-[#0d0d0d] dark:text-foreground leading-relaxed">
-        <GeneratingIndicator />
-        <CancelledIndicator />
-        <DiffusionCanvas />
-        <MessagePrimitive.Parts
-          components={{
-            Text: MarkdownText,
-            Reasoning: Reasoning,
-            ReasoningGroup: ReasoningGroup,
-            Source: Sources,
-            ToolGroup: ToolGroup,
-            tools: {
-              by_name: {
-                web_search: WebSearchToolUIConfirmable,
-                search_knowledge_base: KnowledgeBaseToolUIConfirmable,
-                python: PythonToolUIConfirmable,
-                terminal: TerminalToolUIConfirmable,
-                code_execution: CodeExecutionToolUIConfirmable,
-                image_generation: ImageGenerationToolUIConfirmable,
-                render_html: RenderHtmlToolUIConfirmable,
-              },
-              Fallback: ToolFallbackConfirmable,
-            },
-          }}
-        />
-        <SourcesGroup />
-        <RagSourcesGroup />
-        <MessageHtmlArtifacts />
-        <MessageError />
+        {isEditing ? (
+          <div className="flex flex-col gap-2 w-full">
+            <textarea 
+              ref={textareaRef}
+              defaultValue={extractTaggedText(messageContent)}
+              className="w-full p-3 rounded-xl bg-muted border border-border text-foreground focus:ring-2 focus:ring-primary outline-none overflow-y-auto resize-none font-mono text-sm max-h-[70vh]" 
+              autoFocus
+              onInput={adjustHeight} 
+              onKeyDown={(e) => {
+                e.stopPropagation(); 
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  handleSave();
+                }
+                if (e.key === 'Escape') {
+                  setEditingId(null); // UX: Close editor on Escape
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs">Cancel</Button>
+              <Button size="sm" onClick={handleSave} className="h-8 text-xs">Save</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <GeneratingIndicator />
+            <CancelledIndicator />
+            <DiffusionCanvas />
+            
+            {/* 
+                We use the standard MessagePrimitive.Parts. This ensures that 
+                edited messages maintain the same professional styling, 
+                Markdown rendering, and tool-call components as original responses.
+            */}
+            <MessagePrimitive.Parts
+              components={{
+                Text: MarkdownText,
+                Reasoning: Reasoning,
+                ReasoningGroup: ReasoningGroup,
+                Source: Sources,
+                ToolGroup: ToolGroup,
+                tools: {
+                  by_name: {
+                    web_search: WebSearchToolUIConfirmable,
+                    search_knowledge_base: KnowledgeBaseToolUIConfirmable,
+                    python: PythonToolUIConfirmable,
+                    terminal: TerminalToolUIConfirmable,
+                    code_execution: CodeExecutionToolUIConfirmable,
+                    image_generation: ImageGenerationToolUIConfirmable,
+                    render_html: RenderHtmlToolUIConfirmable,
+                  },
+                  Fallback: ToolFallbackConfirmable,
+                },
+              }}
+            />
+            <SourcesGroup />
+            <RagSourcesGroup />
+            <MessageHtmlArtifacts />
+            <MessageError />
+          </>
+        )}
       </div>
 
       <div className="aui-assistant-message-footer mt-1.5 -ml-[var(--icon-btn-inset)] flex min-h-8">
@@ -3416,6 +3529,26 @@ const CopyButton: FC = () => {
   );
 };
 
+const EditAssistantMessageButton: FC = () => {
+  const messageId = useAuiState(({ message }) => message.id);
+  const isRunning = useAuiState(({ thread }) => thread.isRunning);
+  const setEditingId = useChatRuntimeStore((s) => s.setEditingMessageId);
+
+  return (
+    <TooltipIconButton
+      tooltip="Edit response"
+      disabled={isRunning}
+      onClick={() => setEditingId(messageId)}
+    >
+      <HugeiconsIcon
+        icon={Edit03Icon}
+        strokeWidth={1.75}
+        className="size-icon"
+      />
+    </TooltipIconButton>
+  );
+};
+
 const AssistantActionBar: FC = () => {
   const { forkMessage, forkDisabled } = useForkMessageAction();
 
@@ -3425,6 +3558,7 @@ const AssistantActionBar: FC = () => {
       className="aui-assistant-action-bar-root col-start-3 row-start-2 flex items-center gap-1 text-chat-icon-fg [&_button:not([data-slot=message-timing-trigger])]:size-8 [&_button]:!rounded-full [&_button:hover]:bg-chat-icon-bg-hover [&_button:hover]:text-chat-icon-fg-hover"
     >
       <CopyButton />
+      <EditAssistantMessageButton />
       <ActionBarPrimitive.Reload asChild={true}>
         <TooltipIconButton tooltip="Refresh">
           <RefreshCwIcon strokeWidth={1.75} className="size-icon" />
@@ -3457,7 +3591,11 @@ const AssistantActionBar: FC = () => {
           </ActionBarMorePrimitive.Item>
           <ActionBarPrimitive.ExportMarkdown asChild={true}>
             <ActionBarMorePrimitive.Item className="aui-action-bar-more-item flex cursor-pointer select-none items-center gap-2 rounded-[12px] px-3 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-              <HugeiconsIcon icon={Download01Icon} strokeWidth={1.75} className="size-icon" />
+              <HugeiconsIcon
+                icon={Download01Icon}
+                strokeWidth={1.75}
+                className="size-icon"
+              />
               Export as Markdown
             </ActionBarMorePrimitive.Item>
           </ActionBarPrimitive.ExportMarkdown>
