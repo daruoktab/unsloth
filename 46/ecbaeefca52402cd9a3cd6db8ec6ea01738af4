@@ -1,0 +1,59 @@
+.github/workflows/consolidated-tests-ci.yml
+  s_58dab83d3fbe8f::t_0f64ba2928e754 212,2169,2207,2212,2255-2256,2265-2272,2277,2281,2283,2299
+.github/workflows/lockfile-audit.yml
+  s_58dab83d3fbe8f::t_e45e71156f8b94 63,67
+.github/workflows/mlx-ci.yml
+  s_58dab83d3fbe8f::t_43a85be97095b8 166,234-325,335,351,360,375
+.github/workflows/notebooks-ci.yml
+  s_58dab83d3fbe8f::t_7a7a70863c9671 266
+.github/workflows/release-desktop.yml
+  s_58dab83d3fbe8f::t_6f73c579516dfb 356,583,614,646
+.github/workflows/studio-api-smoke.yml
+  s_58dab83d3fbe8f::t_1a13a8f3698bfc 86,103
+.github/workflows/studio-backend-ci.yml
+  s_58dab83d3fbe8f::t_9f09e25765bc94 71,73,79,136,140,227
+.github/workflows/studio-inference-smoke.yml
+  s_58dab83d3fbe8f::t_482e3c19399987 100,117,367,383,848,866
+.github/workflows/studio-mac-api-smoke.yml
+  s_58dab83d3fbe8f::t_3a8ee5a964e6b4 71,88
+.github/workflows/studio-mac-inference-smoke.yml
+  s_58dab83d3fbe8f::t_4e39120ed68bf9 94,113,349,366,728,755
+.github/workflows/studio-mac-install-matrix.yml
+  s_58dab83d3fbe8f::t_964d8ba532b9b9 66
+.github/workflows/studio-mac-ui-smoke.yml
+  s_58dab83d3fbe8f::t_21df7c31e4812f 71,88,186-192,205-206,281-282,295-296
+.github/workflows/studio-mac-update-smoke.yml
+  s_58dab83d3fbe8f::t_f13126111406fc 65,77,96
+.github/workflows/studio-tauri-smoke.yml
+  s_58dab83d3fbe8f::t_539eea37a144ec 50
+.github/workflows/studio-ui-smoke.yml
+  s_58dab83d3fbe8f::t_121e1596cd9fc1 85,102
+.github/workflows/studio-update-smoke.yml
+  s_58dab83d3fbe8f::t_e268a406419f37 74,89,112
+.github/workflows/studio-windows-api-smoke.yml
+  s_58dab83d3fbe8f::t_aeab9d0bc83359 78,127
+.github/workflows/studio-windows-inference-smoke.yml
+  s_58dab83d3fbe8f::t_7e0149234f6e7d 68-70,75,77-78,112,164,461,509,891,941
+.github/workflows/studio-windows-ui-smoke.yml
+  s_58dab83d3fbe8f::t_ecf302708de7da 94,158
+.github/workflows/studio-windows-update-smoke.yml
+  s_58dab83d3fbe8f::t_1e8ba5641b8a73 9-11,82-83,85-90,136,183,202
+.github/workflows/version-compat-ci.yml
+  s_58dab83d3fbe8f::t_d0c853ffdf3717 245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "46ecbaeefca52402cd9a3cd6db8ec6ea01738af4",
+  "prompts": {},
+  "sessions": {
+    "s_58dab83d3fbe8f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "953fb761-a712-469f-abba-e2ef8b81c7dc",
+        "model": "mimo-v2.5-pro"
+      },
+      "human_author": "daruoktab <daruokta@gmail.com>"
+    }
+  }
+}
