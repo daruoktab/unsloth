@@ -1,0 +1,76 @@
+.github/workflows/consolidated-tests-ci.yml
+  h_4e362b87d6c27d 10,212,359-363,2117,2169,2207,2212,2255-2256,2265-2272,2277,2281,2283,2299
+.github/workflows/cross-platform-parity-ci.yml
+  h_4e362b87d6c27d 4,6-15,48,60-61
+.github/workflows/lint-ci.yml
+  h_4e362b87d6c27d 16,19,108-116,127,138
+.github/workflows/lockfile-audit.yml
+  h_4e362b87d6c27d 63,67
+.github/workflows/mlx-ci.yml
+  h_4e362b87d6c27d 133,166,234-325,335,351,360,375
+.github/workflows/notebooks-ci.yml
+  h_4e362b87d6c27d 266
+.github/workflows/release-desktop.yml
+  h_4e362b87d6c27d 7,59,136,201,298-305,356,412-430,432,434-435,437-440,565,570,576-589,592,597,607-620,623,628,639-652,655-661,663,666,767
+.github/workflows/security-audit.yml
+  h_4e362b87d6c27d 5-6,39-40,219,254,327,329,343,351,353,363,560,741,750,965,1174
+.github/workflows/studio-api-smoke.yml
+  h_4e362b87d6c27d 4,18,43,86,100,103,112,114,145,154
+.github/workflows/studio-backend-ci.yml
+  h_4e362b87d6c27d 67,71,73,79,136,140,207-210,214,217-219,222-227
+.github/workflows/studio-frontend-ci.yml
+  h_4e362b87d6c27d 139,147
+.github/workflows/studio-inference-smoke.yml
+  h_4e362b87d6c27d 4,30,100,114,117,126,128,143,230,234,277,291,324,367,380,383,389,399,463-466,494-513,521,525,644,652-660,719,729,738,752,772,848,863,866,875,880,953-954,960,966,996,1032,1034,1068
+.github/workflows/studio-load-orchestrator-ci.yml
+  h_4e362b87d6c27d 4,17
+.github/workflows/studio-mac-api-smoke.yml
+  h_4e362b87d6c27d 36,71,85,88,100,102,130,136
+.github/workflows/studio-mac-inference-smoke.yml
+  h_4e362b87d6c27d 4,94,110,113,125,127,142,229,233,284,349,363,366,375,385,449-452,456,468-485,525,529,564-565,597,603,621,647,728,752,755,767,772,845-846,852,858,930,946,948,950,976-977,981,983,1022,1026
+.github/workflows/studio-mac-install-matrix.yml
+  h_4e362b87d6c27d 4,63,66
+.github/workflows/studio-mac-ui-smoke.yml
+  h_4e362b87d6c27d 71,85,88,97,113,144,146,186-192,205-206,208,211,237,243,245,270,281-282,295-296,298,301,325
+.github/workflows/studio-mac-update-smoke.yml
+  h_4e362b87d6c27d 7,10,15,45,62,65,77,96,106,123,129
+.github/workflows/studio-tauri-smoke.yml
+  h_4e362b87d6c27d 15,50
+.github/workflows/studio-ui-smoke.yml
+  h_4e362b87d6c27d 4-5,17,37,85,99,102,108,111-114,116,118,148,166,171,177,185,188,190,215,228,235,237,239,257,274
+.github/workflows/studio-update-smoke.yml
+  h_4e362b87d6c27d 12,39,66,74,89,112,122,138,144
+.github/workflows/studio-windows-api-smoke.yml
+  h_4e362b87d6c27d 12,37,78,107,123,127,162,178,180,208,220
+.github/workflows/studio-windows-inference-smoke.yml
+  h_4e362b87d6c27d 4,19,59,68-70,75,77-78,112,144,160,164,197,210,212,227,264,365,370,373,381,384,422,429,461,489,505,509,542,552,554,588,637-640,652-669,720-721,743-744,765,799,804,807,815,818,856,891,921,937,941,974,987,989,1061-1062,1159,1200,1204,1209,1212,1220,1223
+.github/workflows/studio-windows-ui-smoke.yml
+  h_4e362b87d6c27d 7,11,52,94,123,150,158,206,235,266-267,269,285,295,297,340,346,348,373,387
+.github/workflows/studio-windows-update-smoke.yml
+  h_4e362b87d6c27d 8-11,17,20,48,56,82-83,85-90,93,112,132,136,170,183,202,212,239,245,268
+.github/workflows/version-compat-ci.yml
+  h_4e362b87d6c27d 245
+.github/workflows/wheel-smoke.yml
+  h_4e362b87d6c27d 6,15,104,112,128
+pyproject.toml
+  h_4e362b87d6c27d 126,132-133,645-646,661
+unsloth/models/_utils.py
+  h_4e362b87d6c27d 2978-2988,2990
+unsloth/models/llama.py
+  h_4e362b87d6c27d 112,119-123,3133-3139,3406,3438,3604-3610
+unsloth/models/loader.py
+  h_4e362b87d6c27d 1102,1882-1887
+unsloth/models/vision.py
+  h_4e362b87d6c27d 21,61,1823-1825,1831
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "4e5aa08dde149314e75dc33564f9658b01691739",
+  "prompts": {},
+  "humans": {
+    "h_4e362b87d6c27d": {
+      "author": "daruoktab <daruokta@gmail.com>"
+    }
+  }
+}
