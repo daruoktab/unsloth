@@ -1,0 +1,22 @@
+pyproject.toml
+  h_4e362b87d6c27d 128,142-143,655-656,671
+unsloth/models/_utils.py
+  h_4e362b87d6c27d 2978-2988,2990
+unsloth/models/llama.py
+  h_4e362b87d6c27d 112,119-123,3133-3139,3406,3438,3604-3610
+unsloth/models/loader.py
+  h_4e362b87d6c27d 1102,1882-1887
+unsloth/models/vision.py
+  h_4e362b87d6c27d 21,61,1823-1825,1831
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a126e0026e040225f4c14bf25551a1f5b44e68e0",
+  "prompts": {},
+  "humans": {
+    "h_4e362b87d6c27d": {
+      "author": "daruoktab <daruokta@gmail.com>"
+    }
+  }
+}
