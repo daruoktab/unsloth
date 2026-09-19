@@ -1,0 +1,20 @@
+unsloth/models/_utils.py
+  h_4e362b87d6c27d 3186-3196,3198
+unsloth/models/llama.py
+  h_4e362b87d6c27d 130,137-141,3144-3150,3447,3485,3661-3667
+unsloth/models/loader.py
+  h_4e362b87d6c27d 1117,1850-1854
+unsloth/models/vision.py
+  h_4e362b87d6c27d 18,85,1268-1276,1278,2214-2219,2225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c957a942ff6e38d1d381f02b2b0e091a0ad6392b",
+  "prompts": {},
+  "humans": {
+    "h_4e362b87d6c27d": {
+      "author": "daruoktab <daruokta@gmail.com>"
+    }
+  }
+}
