@@ -6066,7 +6066,12 @@ def torchvision_compatibility_check():
         )
         return
 
-    raise ImportError(message)
+    # Project fork: the version table is a heuristic, not ground truth. A stable
+    # mismatch whose compiled ops still load (e.g. torch 2.15 + torchvision 0.29,
+    # both cu132) only warns; the binary probe stays the real gate, so a genuine
+    # ABI break still fails fast with repair advice.
+    _probe_torchvision_binary(torch_version_raw, torchvision_version_raw, required)
+    logger.warning(message)
 
 
 def _unsatisfied_transformers_requirements():
