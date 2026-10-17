@@ -189,28 +189,29 @@ triton = [
 ]
 
 huggingfacenotorch = [
+    # Project fork: upper bounds on transformers/peft/trl/datasets are removed on
+    # purpose so newer releases resolve without waiting for an unsloth pin bump.
+    # The unsloth_zoo floor still tracks upstream and moves with each rebase.
     "unsloth_zoo>=2026.10.10",
-    "wheel>=0.42.0",
+    "wheel>=0.48.0",
     "packaging",
     "numpy",
     "tqdm",
     "psutil",
     "protobuf",
-    "sentencepiece>=0.2.0",
-    "datasets>=3.4.1,!=4.0.*,!=4.1.0,!=4.4.*,!=4.5.0,<5.0.0",
-    "accelerate>=0.34.1",
-    "peft>=0.18.0,!=0.11.0",
-    "huggingface_hub>=0.34.0",
+    "sentencepiece>=0.2.2",
+    "datasets>=5.0.1",
+    "accelerate>=1.15.0",
+    "peft>=0.20.0",
+    "huggingface_hub>=1.31.0",
     # Rust extension with no win_arm64 wheel; only used under HF_HUB_ENABLE_HF_TRANSFER=1.
     "hf_transfer ; sys_platform != 'win32' or platform_machine != 'ARM64'",
     # 0.39 is the floor the diffusion stack assumes (Krea2Pipeline, Flux2, Z-Image).
     # Conditional because diffusers dropped Python 3.9 in 0.37.
     "diffusers>=0.39.0 ; python_version >= '3.10'",
     "diffusers ; python_version < '3.10'",
-    # Ceiling = newest release the version matrix ran. Each `!=` was tested and rejected: keep them.
-    # Apple Silicon stays at 5.5.0 via unsloth_zoo's marker-split requirement.
-    "transformers>=4.52.4,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.17.0",
-    "trl>=0.18.2,!=0.19.0,<=1.15.0",
+    "transformers>=5.17.0",
+    "trl>=1.13.0",
     "sentence-transformers",
 ]
 # torchcodec ships wheels only for manylinux x86_64 (aarch64 from 0.11), macOS arm64 and win_amd64;
@@ -878,24 +879,24 @@ colab-ampere-torch220 = [
 colab-new = [
     "unsloth_zoo>=2026.10.10",
     "packaging",
-    "transformers>=4.52.4,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.17.0",
-    "datasets>=3.4.1,!=4.0.*,!=4.1.0,!=4.4.*,!=4.5.0,<5.0.0",
-    "sentencepiece>=0.2.0",
+    "transformers>=5.17.0",
+    "datasets>=5.0.1",
+    "sentencepiece>=0.2.2",
     "tqdm",
     "psutil",
-    "wheel>=0.42.0",
+    "wheel>=0.48.0",
     "numpy",
     "protobuf",
-    "huggingface_hub>=0.34.0",
+    "huggingface_hub>=1.31.0",
     "hf_transfer",
     "bitsandbytes>=0.45.5,!=0.46.0,!=0.48.0",
     "unsloth[triton]",
     "sentence-transformers",
 ]
 colab-no-deps = [
-    "accelerate>=0.34.1",
-    "trl>=0.18.2,!=0.19.0,<=1.15.0",
-    "peft>=0.18.0",
+    "accelerate>=1.15.0",
+    "trl>=1.13.0",
+    "peft>=0.20.0",
     "xformers ; ('linux' in sys_platform or sys_platform == 'win32') and (platform_machine == 'AMD64' or platform_machine == 'x86_64')",
     "bitsandbytes>=0.45.5,!=0.46.0,!=0.48.0",
     "protobuf",
